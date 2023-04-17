@@ -36,11 +36,10 @@ export async function bypass(
 ): Promise<{
   cookies: Cookie[];
 }> {
-  const cf = 'Checking if the site connection is secure';
+  const cf = 'Just a moment...';
   await page.goto(url, { waitUntil: 'domcontentloaded' });
-  let body = await page.innerText('body');
-
-  if (body.includes(cf)) {
+  let title = await page.innerText('head title');
+  if (title.includes(cf)) {
     await turnstile(page);
     const iframe = page.locator('iframe');
     const button = page.getByRole('button', { name: 'Verify you are human' });
@@ -55,8 +54,8 @@ export async function bypass(
         await page.evaluate((key) => window.cc(key), result);
       }
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      body = await page.innerText('body');
-    } while (body.includes(cf));
+      title = await page.innerText('head title');
+    } while (title.includes(cf));
   }
 
   const cookies = await page.context().cookies();

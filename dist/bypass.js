@@ -33,10 +33,10 @@ function turnstile(page) {
 }
 function bypass(url, key, page, proxy) {
     return __awaiter(this, void 0, void 0, function* () {
-        const cf = 'Checking if the site connection is secure';
+        const cf = 'Just a moment...';
         yield page.goto(url, { waitUntil: 'domcontentloaded' });
-        let body = yield page.innerText('body');
-        if (body.includes(cf)) {
+        let title = yield page.innerText('head title');
+        if (title.includes(cf)) {
             yield turnstile(page);
             const iframe = page.locator('iframe');
             const button = page.getByRole('button', { name: 'Verify you are human' });
@@ -53,8 +53,8 @@ function bypass(url, key, page, proxy) {
                     yield page.evaluate((key) => window.cc(key), result);
                 }
                 yield new Promise((resolve) => setTimeout(resolve, 1000));
-                body = yield page.innerText('body');
-            } while (body.includes(cf));
+                title = yield page.innerText('head title');
+            } while (title.includes(cf));
         }
         const cookies = yield page.context().cookies();
         return { cookies };
