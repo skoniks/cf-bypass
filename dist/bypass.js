@@ -47,10 +47,14 @@ function bypass(url, key, page, proxy) {
                 if (yield iframe.isVisible()) {
                     const src = yield iframe.getAttribute('src');
                     const sitekey = src === null || src === void 0 ? void 0 : src.split('/').find((i) => i.match(/0x.*/));
-                    if (!sitekey)
+                    if (!src || !sitekey)
                         throw new Error('ERROR_NO_SITEKEY');
-                    const result = yield (0, captcha_1.captcha)(key, sitekey, url, proxy);
-                    yield page.evaluate((key) => window.cc(key), result);
+                    const frame = yield page.frame({ url: src });
+                    const text = yield (frame === null || frame === void 0 ? void 0 : frame.innerText('#cf-stage'));
+                    if (text === null || text === void 0 ? void 0 : text.includes('Verify you are human')) {
+                        const result = yield (0, captcha_1.captcha)(key, sitekey, url, proxy);
+                        yield page.evaluate((key) => window.cc(key), result);
+                    }
                 }
                 yield new Promise((resolve) => setTimeout(resolve, 1000));
                 title = yield page.innerText('head title');

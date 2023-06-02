@@ -49,9 +49,13 @@ export async function bypass(
       if (await iframe.isVisible()) {
         const src = await iframe.getAttribute('src');
         const sitekey = src?.split('/').find((i) => i.match(/0x.*/));
-        if (!sitekey) throw new Error('ERROR_NO_SITEKEY');
-        const result = await captcha(key, sitekey, url, proxy);
-        await page.evaluate((key) => window.cc(key), result);
+        if (!src || !sitekey) throw new Error('ERROR_NO_SITEKEY');
+        const frame = await page.frame({ url: src });
+        const text = await frame?.innerText('#cf-stage');
+        if (text?.includes('Verify you are human')) {
+          const result = await captcha(key, sitekey, url, proxy);
+          await page.evaluate((key) => window.cc(key), result);
+        }
       }
       await new Promise((resolve) => setTimeout(resolve, 1000));
       title = await page.innerText('head title');
