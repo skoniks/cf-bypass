@@ -1,1 +1,8 @@
-export declare function captcha(key: string, sitekey: string, pageurl: string, proxy?: string): Promise<string>;
+export declare function captcha(key: string, params: {
+    sitekey: string;
+    action: string;
+    data: string;
+    pagedata: string;
+    useragent: string;
+    pageurl: string;
+}, proxy?: string): Promise<string>;

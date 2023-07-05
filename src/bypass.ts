@@ -3,29 +3,15 @@ import { captcha } from './captcha';
 
 declare global {
   interface Window {
-    cc: any;
+    _cf_chl_opt: any;
+    _cf_bp_render?: {
+      callback: (key: string) => void;
+      sitekey: string;
+      action: string;
+      cData: string;
+      chlPageData: string;
+    };
   }
-}
-
-async function turnstile(page: Page) {
-  await page.route('**/*', async (route) => {
-    const url = route.request().url();
-    if (url.includes('turnstile/v0/api.js')) {
-      const response = await route.fetch();
-      let text = (await response?.text()) || '';
-      text = text.replace(
-        ';let _=t.callback',
-        ';window.cc=t.callback;let _=t.callback',
-      );
-      await route.fulfill({
-        body: text,
-        status: 200,
-        contentType: 'text/javascript',
-      });
-    } else {
-      route.continue();
-    }
-  });
 }
 
 export async function bypass(
@@ -36,30 +22,58 @@ export async function bypass(
 ): Promise<{
   cookies: Cookie[];
 }> {
-  const cf = 'Just a moment...';
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'turnstile', {
+      get() {
+        return this._turnstile;
+      },
+      set(value: any) {
+        value.render = (_: any, params: any) => {
+          window._cf_bp_render = params;
+        };
+        this._turnstile = value;
+      },
+    });
+  });
+  await page.route('**/*', async (route) => {
+    const url = route.request().url();
+    if (url.match(/\/turnstile\/v0(\/.*)?\/api\.js/)) {
+      const response = await route.fetch();
+      let text = (await response?.text()) || '';
+      await route.fulfill({
+        body: text.replace('"turnstile"in window', '!!window["turnstile"]'),
+        contentType: 'text/javascript',
+      });
+    } else {
+      await route.continue();
+    }
+  });
   await page.goto(url, { waitUntil: 'domcontentloaded' });
-  let title = await page.innerText('head title');
-  if (title.includes(cf)) {
-    await turnstile(page);
-    const iframe = page.locator('iframe');
-    const button = page.getByRole('button', { name: 'Verify you are human' });
+  if (await page.evaluate(() => window._cf_chl_opt)) {
     do {
       await page.waitForLoadState('networkidle');
-      if (await button.isVisible()) await button.click();
-      if (await iframe.isVisible()) {
-        const src = await iframe.getAttribute('src');
-        const sitekey = src?.split('/').find((i) => i.match(/0x.*/));
-        if (!src || !sitekey) throw new Error('ERROR_NO_SITEKEY');
-        const frame = await page.frame({ url: src });
-        const text = await frame?.innerText('#cf-stage');
-        if (text?.includes('Verify you are human')) {
-          const result = await captcha(key, sitekey, url, proxy);
-          await page.evaluate((key) => window.cc(key), result);
-        }
+      const params = await page.evaluate(() => window._cf_bp_render);
+      if (params) {
+        const userAgent = await page.evaluate(() => window.navigator.userAgent);
+        const result = await captcha(
+          key,
+          {
+            sitekey: params.sitekey,
+            action: params.action,
+            data: params.cData,
+            pagedata: params.chlPageData,
+            useragent: userAgent,
+            pageurl: url,
+          },
+          proxy,
+        );
+        await page.evaluate(
+          (key) => window._cf_bp_render?.callback(key),
+          result,
+        );
       }
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      title = await page.innerText('head title');
-    } while (title.includes(cf));
+    } while (await page.evaluate(() => window._cf_chl_opt));
   }
 
   const cookies = await page.context().cookies();

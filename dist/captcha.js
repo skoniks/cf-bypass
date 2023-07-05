@@ -16,25 +16,29 @@ exports.captcha = void 0;
 const axios_1 = __importDefault(require("axios"));
 const querystring_1 = require("querystring");
 const baseURL = 'http://rucaptcha.com';
-function captcha(key, sitekey, pageurl, proxy) {
+function captcha(key, params, proxy) {
     return __awaiter(this, void 0, void 0, function* () {
-        const id = yield captchaIn(key, sitekey, pageurl, proxy);
+        const id = yield captchaIn(key, params, proxy);
         const result = yield captchaRes(key, id);
         return result;
     });
 }
 exports.captcha = captcha;
-function captchaIn(key, sitekey, pageurl, proxy) {
+function captchaIn(key, params, proxy) {
     return __awaiter(this, void 0, void 0, function* () {
-        const params = { key, method: 'turnstile', json: 1 };
+        const defaults = {
+            key,
+            method: 'turnstile',
+            json: 1,
+        };
         if (proxy) {
             const [type, host] = proxy.split('://');
-            params.proxy = host;
-            params.proxytype = type.toUpperCase();
+            defaults.proxytype = type.toUpperCase();
+            defaults.proxy = host;
         }
         const { data } = yield (0, axios_1.default)({
             url: baseURL + '/in.php',
-            data: Object.assign(Object.assign({}, params), { sitekey, pageurl }),
+            data: Object.assign(Object.assign({}, params), defaults),
             method: 'post',
         });
         if (!data.status)
@@ -44,12 +48,13 @@ function captchaIn(key, sitekey, pageurl, proxy) {
 }
 function captchaRes(key, id) {
     return __awaiter(this, void 0, void 0, function* () {
-        const params = { key, action: 'get', json: 1 };
+        const defaults = { key, action: 'get', json: 1 };
         do {
             yield new Promise((resolve) => setTimeout(resolve, 5000));
-            const { data } = yield (0, axios_1.default)(baseURL + '/res.php?' + (0, querystring_1.stringify)(Object.assign(Object.assign({}, params), { id })));
-            if (data.status)
+            const { data } = yield (0, axios_1.default)(baseURL + '/res.php?' + (0, querystring_1.stringify)(Object.assign(Object.assign({}, defaults), { id })));
+            if (data.status) {
                 return data.request;
+            }
             else if (data.request !== 'CAPCHA_NOT_READY') {
                 throw new Error(data.request);
             }
